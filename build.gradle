@@ -1,10 +1,9 @@
 plugins {
-    id "java"
     id "ca.stellardrift.gitpatcher" version "2.0.0"
 }
 
-group = "snw.mods"
-version = "1.0-SNAPSHOT"
+group = "snw"
+version = "1.0"
 
 repositories {
     mavenCentral()

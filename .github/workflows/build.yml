@@ -1,0 +1,76 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Apply patches
+        run: ./gradlew applyPatches
+
+      - name: Build project
+        run: |
+          cd target
+          chmod +x gradlew
+          ./gradlew build
+
+      - name: Get upstream commit
+        id: upstream
+        run: |
+          cd ..
+          cd upstream
+          UPSTREAM_COMMIT=$(git rev-parse --short HEAD)
+          UPSTREAM_COMMIT_FULL=$(git rev-parse HEAD)
+          echo "short=$UPSTREAM_COMMIT" >> $GITHUB_OUTPUT
+          echo "full=$UPSTREAM_COMMIT_FULL" >> $GITHUB_OUTPUT
+          cd ..
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: target/HMCL/build/libs/*
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
+          body: |
+            ## Build Information
+
+            - **Upstream Commit**: HMCL-dev/HMCL@${{ steps.upstream.outputs.short }}
+            - **Full Commit**: `${{ steps.upstream.outputs.full }}`
+            - **Build Date**: ${{ github.event.head_commit.timestamp }}
+
+            ### Changes
+            ${{ github.event.head_commit.message }}
+          files: target/HMCL/build/libs/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
